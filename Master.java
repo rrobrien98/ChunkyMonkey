@@ -1,18 +1,25 @@
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-
+import java.util.Hashtable;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Master extends Thread implements MasterInterface{
-
-        private Master() {}
+	private Hashtable<String, String[]> chunkList = new Hashtable<String, String[]>();
+        private ArrayList<String> nodeList = new ArrayList<String>();
+	public void addChunk(String key, String[] value){
+		chunkList.put(key, value);
+	}
+		
+	private Master() {}
         public void run(){
 
                 try
                 {
                         //System.out.println("before stub");
-                        MasterInterface stub = (MasterInterface) UnicastRemoteObject.exportObject(this, 8104);
+                        MasterInterface stub = (MasterInterface) UnicastRemoteObject.exportObject(this, 8106);
 
                         // Bind the remote object's stub in the registry
                         //System.out.println("before create reg");
@@ -27,16 +34,44 @@ public class Master extends Thread implements MasterInterface{
                 catch (Exception e){                                                                                         // Throwing an exception
                         System.out.println (e.toString());
                 }
-        }
-
-
-
-        public String modifyList(String filename, String ip_addr, int chunk){
-                return "rmi working";
-        }
-       public String addNode(String ip_addr){
-                System.out.println(ip_addr);
-                return "worked";
+	}
+	public Hashtable<String, String[]> getChunkList(){
+		return chunkList;
+	}
+	public void updateNodelist(String ip_addr){
+		nodeList.add(ip_addr);
+	}
+	public void sendChunkList(String ip_addr){
+		System.out.println("Send chunk list called");
+		try {
+                      
+			
+			Registry registry = LocateRegistry.getRegistry(ip_addr, 8074);
+                      	System.out.println("registry found");
+			ClientInterface stub = (ClientInterface) registry.lookup("Node");
+                      	System.out.println("stub created");
+			String response = stub.updateList(this.getChunkList());
+                      	System.out.println("response: " + response);
+                } catch (Exception e) {
+                      	System.err.println("Client exception: " + e.toString());
+                      	e.printStackTrace();
+		}
+	}
+	public String modifyList(String filename, String ip_addr, int chunk){
+                System.out.println("modify list called");
+		String[] value =  new String[2];
+		value[0] = ip_addr;
+		value[1] = Integer.toString(chunk);
+		addChunk(filename, value);
+		for (String addr: nodeList){
+			sendChunkList(addr);
+		}	
+		return getChunkList().toString();
+       	}
+       	public String addNode(String ip_addr){
+                updateNodelist(ip_addr);
+                sendChunkList(ip_addr);
+		return "nodelist updated";
 
         }
        	private static Master obj;
