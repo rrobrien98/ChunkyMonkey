@@ -13,14 +13,15 @@ import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.Scanner;
+import java.util.ArrayList;
 public class Node extends Thread implements ClientInterface{
-        public static Hashtable<String, String[]> chunkList = new Hashtable<String, String[]>();
+        public static Hashtable<String, ArrayList<String[]>> chunkList = new Hashtable<String, ArrayList<String[]>>();
 	public static final int CHUNK_SIZE = 500;
         public Node() {}
-        public void setChunkList(Hashtable<String, String[]> newList){
+        public void setChunkList(Hashtable<String, ArrayList<String[]>> newList){
                 chunkList = newList;
         }
-        public Hashtable<String, String[]> getChunkList(){
+        public Hashtable<String, ArrayList<String[]>> getChunkList(){
 		return this.chunkList;
 	}
 	public void run(){
@@ -50,7 +51,7 @@ public class Node extends Thread implements ClientInterface{
 		try{
 			Registry registry = LocateRegistry.getRegistry(ip_addr, 8087);
 			ClientInterface stub = (ClientInterface) registry.lookup("Node");
-			chunkData = downloadChunk(filename, chunk);
+			chunkData = stub.downloadChunk(filename, chunk);
 
 			RandomAccessFile file = new RandomAccessFile(filename, "rw");
 			file.seek(chunk * CHUNK_SIZE);
@@ -84,7 +85,7 @@ public class Node extends Thread implements ClientInterface{
 		}
 		return data;
 	}
-        public String updateList(Hashtable<String, String[]> list) {
+        public String updateList(Hashtable<String, ArrayList<String[]>> list) {
                 setChunkList(list);
                 return "new list recieved";
         }
@@ -92,33 +93,79 @@ public class Node extends Thread implements ClientInterface{
         public static void main(String args[]) {
            	obj = new Node();
                 obj.start();
-		//Registry registry = LocateRegistry.getRegistry("100.26.104.102", 8087);
-                //ClientInterface stub = (ClientInterface) registry.lookup("Master");
-		//String response = stub.addNode(args[whatever]);
-		//while(true){
-		        //Scanner input= new Scanner(System.in); 
-  
-        		// String input 
-			//String name = input.nextLine();	
-			//System.out.println("sent request");
-                	if (args.length == 1 && args[0].equals("test")){
-				try {
-                        		//Registry registry = LocateRegistry.getRegistry("100.26.104.102", 8087);
-                       			//ClientInterface stub = (ClientInterface) registry.lookup("Master");
-                        		//String response = stub.addNode("54.209.66.61");
-         			  	obj.getChunk("54.209.66.61", "/home/rrobrien/test3.txt",0);
-				
-				
-					//System.out.println("response from other node: " + response);
-                			//String response2 = stub.modifyList("test name", "test ip", 1);	
-					//System.out.println("new list = " + chunkList.toString());
-				} catch (Exception e) {
-                        		System.err.println("Client exception: " + e.toString());
-                        		e.printStackTrace();
-                		}
-			}
-		//}
-        }	
+		
+		//asks for user input: add file: 1 filename chunk,	
+		
+                if (args.length != 2){
+			System.out.println("Need IP address of node as argument");
+			return;
+		}
 
+		String thisIp = args[0];
+                String masterIp = args[1];
+		System.out.println("our ip: " + thisIp);
+		try{
+	        Registry registry = LocateRegistry.getRegistry(masterIp, 8087);
+	        MasterInterface stub = (MasterInterface) registry.lookup("Master");
+	        String response = stub.addNode(thisIp);
+	        System.out.println(response);
+
+
+
+		while(true){
+			
+			Scanner op = new Scanner(System.in);
+			int operation = op.nextInt();
+			
+
+			//user specifies what type of command they want to perform
+			switch (operation) {
+				case 1:
+					Scanner fileInfo = new Scanner(System.in);
+					String info = fileInfo.nextLine();
+					String[] infoArr = info.split(" ");
+				
+                                        
+                                        response = stub.modifyList(infoArr[0],thisIp,Integer.parseInt(infoArr[1]));
+					System.out.println(response);
+
+					break;
+				case 2:
+					
+					
+					Scanner filename = new Scanner(System.in);
+					String file = filename.nextLine();
+					ArrayList<String[]> chunks = chunkList.get(file);
+					ArrayList<String> done = new ArrayList<String>();
+					for(String[] chunk: chunks){
+						if (!done.contains(chunk[1])){
+							obj.getChunk(chunk[0], file, Integer.parseInt(chunk[1]));
+							done.add(chunk[1]);
+						}
+					}					
+					break;
+				case 3:
+					
+					for(String key: chunkList.keySet()){
+						System.out.println(key);
+					}
+							
+					
+					
+					break;
+				default:
+					System.out.println("Invalid Command");
+					
+					break;
+				}
+				
+			}
+		
+        	}	
+		
+		catch(Exception e){
+		System.out.println(e.toString());
+		}
+		}
 }
 

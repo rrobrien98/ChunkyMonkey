@@ -7,13 +7,37 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class Master extends Thread implements MasterInterface{
-	private Hashtable<String, String[]> chunkList = new Hashtable<String, String[]>();
+	private static Hashtable<String, ArrayList<String[]>> chunkList = new Hashtable<String, ArrayList<String[]>>();
         private ArrayList<String> nodeList = new ArrayList<String>();
-	public void addChunk(String key, String[] value){
-		chunkList.put(key, value);
+	private static void addChunk(String key, String[] value){
+		
+		ArrayList<String[]> old_val = chunkList.get(key);	
+		
+
+		
+	
+
+		
+		if(old_val == null){
+			old_val = new ArrayList<String[]>();
+			old_val.add(value);
+			chunkList.put(key, old_val);
+			
+		}
+		else{
+			old_val.add(value);
+			chunkList.put(key, old_val);
+
+                }
+
+
+	
+	
 	}
 		
-	private Master() {}
+	private Master() {
+		this.chunkList = chunkList;
+	}
         public void run(){
 
                 try
@@ -35,10 +59,11 @@ public class Master extends Thread implements MasterInterface{
                         System.out.println (e.toString());
                 }
 	}
-	public Hashtable<String, String[]> getChunkList(){
+	public static Hashtable<String, ArrayList<String[]>> getChunkList(){
 		return chunkList;
 	}
 	public void updateNodelist(String ip_addr){
+		
 		nodeList.add(ip_addr);
 	}
 	public void sendChunkList(String ip_addr){
@@ -46,7 +71,7 @@ public class Master extends Thread implements MasterInterface{
 		try {
                       
 			
-			Registry registry = LocateRegistry.getRegistry(ip_addr, 8074);
+			Registry registry = LocateRegistry.getRegistry(ip_addr, 8087);
                       	System.out.println("registry found");
 			ClientInterface stub = (ClientInterface) registry.lookup("Node");
                       	System.out.println("stub created");
@@ -62,8 +87,11 @@ public class Master extends Thread implements MasterInterface{
 		String[] value =  new String[2];
 		value[0] = ip_addr;
 		value[1] = Integer.toString(chunk);
+		System.out.println("got here");
 		addChunk(filename, value);
+		System.out.println("nodelist " + nodeList.toString());
 		for (String addr: nodeList){
+			System.out.println(addr);
 			sendChunkList(addr);
 		}	
 		return getChunkList().toString();
