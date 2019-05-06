@@ -5,10 +5,10 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.Arrays;
-
+import java.util.concurrent.TimeUnit;
 public class Master extends Thread implements MasterInterface{
 	private static Hashtable<String, ArrayList<String[]>> chunkList = new Hashtable<String, ArrayList<String[]>>();
-        private ArrayList<String> nodeList = new ArrayList<String>();
+        private static ArrayList<String> nodeList = new ArrayList<String>();
 	private static void addChunk(String key, String[] value){
 		
 		ArrayList<String[]> old_val = chunkList.get(key);	
@@ -52,13 +52,15 @@ public class Master extends Thread implements MasterInterface{
 
                         System.err.println("Master Server ready");
 
-
+			
 
                 }
                 catch (Exception e){                                                                                         // Throwing an exception
                         System.out.println (e.toString());
                 }
+		
 	}
+
 	public static Hashtable<String, ArrayList<String[]>> getChunkList(){
 		return chunkList;
 	}
@@ -69,8 +71,7 @@ public class Master extends Thread implements MasterInterface{
 	public void sendChunkList(String ip_addr){
 		System.out.println("Send chunk list called");
 		try {
-                      
-			
+                      	
 			Registry registry = LocateRegistry.getRegistry(ip_addr, 8087);
                       	System.out.println("registry found");
 			ClientInterface stub = (ClientInterface) registry.lookup("Node");
@@ -98,7 +99,7 @@ public class Master extends Thread implements MasterInterface{
        	}
        	public String addNode(String ip_addr){
                 updateNodelist(ip_addr);
-                sendChunkList(ip_addr);
+                this.sendChunkList(ip_addr);
 		return "nodelist updated";
 
         }
@@ -106,6 +107,45 @@ public class Master extends Thread implements MasterInterface{
         public static void main(String[] args) {
                 obj = new Master();
                 obj.start();
+
+		while(true){
+			int changed = 0;
+			ArrayList<String> badList = new ArrayList<String>();
+			for (String addr : nodeList){
+				try {
+					Registry registry = LocateRegistry.getRegistry(addr, 8087);
+					ClientInterface stub = (ClientInterface) registry.lookup("Node");
+					String response = stub.heartbeat();
+				}
+				catch (Exception e) {
+					nodeList.remove(addr);
+					badList.add(addr);
+					changed = 1;
+				}
+			}
+			if (changed == 1){
+				for (String file: chunkList.keySet()){
+					for (String[] chunk : chunkList.get(file)){
+						if (badList.contains(chunk[0])){
+				        	        ArrayList<String[]> old_val = chunkList.get(file);
+				                
+                        				old_val.remove(chunk);
+                        				chunkList.put(file, old_val);
+						}
+					}
+				}
+			}
+			try{
+				TimeUnit.SECONDS.sleep(10000);
+		
+			}
+			catch (Exception e){
+				System.out.print("sleep didnt work");
+			}
+		}
+                
+
+
         //String host = (args.length < 1) ? null : args[0];
 
                 //try {
