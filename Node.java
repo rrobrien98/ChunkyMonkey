@@ -15,14 +15,21 @@ import java.util.Arrays;
 import java.util.Scanner;
 import java.util.ArrayList;
 import java.lang.Runnable;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 public class Node extends Thread implements ClientInterface{
-        public static Hashtable<String, ArrayList<String[]>> chunkList = new Hashtable<String, ArrayList<String[]>>();
+        public static ConcurrentHashMap<String, ArrayList<String[]>> chunkList = new ConcurrentHashMap<String, ArrayList<String[]>>();
 	public static final int CHUNK_SIZE = 500;
-        public Node() {}
-        public void setChunkList(Hashtable<String, ArrayList<String[]>> newList){
+	private static volatile long time;	
+        public Node() {
+		time = 0;
+	}
+		
+        public synchronized void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
                 chunkList = newList;
-        }
-        public Hashtable<String, ArrayList<String[]>> getChunkList(){
+        	//System.out.println("set the new chunklist");
+	}
+        public synchronized ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
 		return this.chunkList;
 	}
 	public String heartbeat(){
@@ -59,7 +66,7 @@ public class Node extends Thread implements ClientInterface{
 
 			RandomAccessFile file = new RandomAccessFile(filename, "rw");
 			file.seek(chunk * CHUNK_SIZE);
-			String chunkString = Arrays.toString(chunkData);
+			//String chunkString = Arrays.toString(chunkData);
 			//System.out.println(chunkString);
 			file.write(chunkData);
 			file.close();
@@ -81,7 +88,7 @@ public class Node extends Thread implements ClientInterface{
 			file.read(data);
 			
 			file.close();
-			System.out.println(Arrays.toString(data));
+			//System.out.println(Arrays.toString(data));
 		}
 		catch (Exception e){
 			System.out.println("Exception is caught" + e.toString());
@@ -89,8 +96,9 @@ public class Node extends Thread implements ClientInterface{
 		}
 		return data;
 	}
-        public String updateList(Hashtable<String, ArrayList<String[]>> list) {
-                setChunkList(list);
+        public synchronized String updateList(ConcurrentHashMap<String, ArrayList<String[]>> list) {
+                //System.out.println("called update list");
+		setChunkList(list);
                 return "new list recieved";
         }
 	
@@ -100,15 +108,25 @@ public class Node extends Thread implements ClientInterface{
 		String filename;
 		int chunk;
 		Node obj;
+			
 		Downloader(String ip_addr, String filename, int chunk, Node obj){
 			this.ip_addr = ip_addr;
 			this.filename = filename;
 			this.chunk = chunk;
 			this.obj = obj;
+			
 		}	
 		public void run(){
+			long start = System.currentTimeMillis();
+			System.out.println("START: " + start);
 			this.obj.getChunk(this.ip_addr, this.filename, this.chunk);
+			System.out.println("END: " + System.currentTimeMillis());
+			this.obj.time = (System.currentTimeMillis() - start);
+			System.out.println("DOWNLOAD TIME: " + this.obj.time);
+			
+			return;
 		}
+		
 	}
 	
 	private static Node obj;
@@ -125,12 +143,16 @@ public class Node extends Thread implements ClientInterface{
 
 		String thisIp = args[0];
                 String masterIp = args[1];
-		System.out.println("our ip: " + thisIp);
+		//System.out.println("our ip: " + thisIp);
 		try{
+		//long start = System.currentTimeMillis();
 	        Registry registry = LocateRegistry.getRegistry(masterIp, 8087);
 	        MasterInterface stub = (MasterInterface) registry.lookup("Master");
-	        String response = stub.addNode(thisIp);
-	        System.out.println(response);
+	        
+		String response = stub.addNode(thisIp);
+	        //System.out.println("TIME: " + (System.currentTimeMillis() - start));
+
+		//System.out.println(response);
 
 
 
@@ -147,9 +169,9 @@ public class Node extends Thread implements ClientInterface{
 					//String info = fileInfo.nextLine();
 					//String[] infoArr = info.split(" ");
 				
-                                        
+                                        //long start = System.currentTimeMillis();
                                         response = stub.modifyList(args[2],thisIp,Integer.parseInt(args[3]));
-					System.out.println(response);
+					//System.out.println("TIME: " + (System.currentTimeMillis() - start));
 
 					break;
 				case 3:
@@ -159,14 +181,21 @@ public class Node extends Thread implements ClientInterface{
 					//String file = filename.nextLine();
 					ArrayList<String[]> chunks = chunkList.get(args[2]);
 					ArrayList<String> done = new ArrayList<String>();
+					long start = System.currentTimeMillis();
 					for(String[] chunk: chunks){
 						if (!done.contains(chunk[1])){
 							//obj.getChunk(chunk[0], file, Integer.parseInt(chunk[1]));
+							
 							Node.Downloader download = obj.new Downloader(chunk[0], args[2], Integer.parseInt(chunk[1]), obj);
-							new Thread(download).start();
+							Thread downloader = new Thread(download);
+							downloader.start();
+							System.out.println("finished running");
 							done.add(chunk[1]);
+							downloader.join();
+							System.out.println("download time from thread: " + obj.time);
 						}
-					}					
+					}
+										
 					break;
 				case 2:
 					
@@ -188,7 +217,7 @@ public class Node extends Thread implements ClientInterface{
         	//}	
 		
 		catch(Exception e){
-		System.out.println(e.toString());
+			System.out.println("node exception " + e.toString());
 		}
 		}
 }
