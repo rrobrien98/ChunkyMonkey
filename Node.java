@@ -20,9 +20,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Node extends Thread implements ClientInterface{
         public static ConcurrentHashMap<String, ArrayList<String[]>> chunkList = new ConcurrentHashMap<String, ArrayList<String[]>>();
 	public static final int CHUNK_SIZE = 500;
-	private static volatile long time;	
+	public static HashTable<String, Long> latencyList = new HashTable<String, Long>(); 		
         public Node() {
-		time = 0;
+		
 	}
 		
         public synchronized void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
@@ -108,24 +108,28 @@ public class Node extends Thread implements ClientInterface{
 		String filename;
 		int chunk;
 		Node obj;
-			
+		long time;	
 		Downloader(String ip_addr, String filename, int chunk, Node obj){
 			this.ip_addr = ip_addr;
 			this.filename = filename;
 			this.chunk = chunk;
 			this.obj = obj;
-			
+			this.time = 0;
 		}	
 		public void run(){
 			long start = System.currentTimeMillis();
 			System.out.println("START: " + start);
 			this.obj.getChunk(this.ip_addr, this.filename, this.chunk);
 			System.out.println("END: " + System.currentTimeMillis());
-			this.obj.time = (System.currentTimeMillis() - start);
-			System.out.println("DOWNLOAD TIME: " + this.obj.time);
+			this.time = (System.currentTimeMillis() - start);
+			System.out.println("DOWNLOAD TIME: " + this.time);
 			
 			return;
 		}
+		public long getTime(){
+			return this.time;
+		}
+
 		
 	}
 	
@@ -180,19 +184,22 @@ public class Node extends Thread implements ClientInterface{
 					//Scanner filename = new Scanner(System.in);
 					//String file = filename.nextLine();
 					ArrayList<String[]> chunks = chunkList.get(args[2]);
-					ArrayList<String> done = new ArrayList<String>();
+					String[] toDownload = new String[100];
 					long start = System.currentTimeMillis();
 					for(String[] chunk: chunks){
-						if (!done.contains(chunk[1])){
+						if (latencyList.get(chunk[0]) == null){
+							latencyList.set(chunk[0], 0);
+						}
+						if (toDownload[chunk[1]] == null || latencyList.get(done[chunk[1]]) > latencyList.get(chunk[0]) ){
 							//obj.getChunk(chunk[0], file, Integer.parseInt(chunk[1]));
 							
 							Node.Downloader download = obj.new Downloader(chunk[0], args[2], Integer.parseInt(chunk[1]), obj);
 							Thread downloader = new Thread(download);
 							downloader.start();
 							System.out.println("finished running");
-							done.add(chunk[1]);
+							toDownload[chunk[1]] = chunk[0] ;
 							downloader.join();
-							System.out.println("download time from thread: " + obj.time);
+							System.out.println("download time from thread: " + download.getTime());
 						}
 					}
 										
@@ -218,6 +225,7 @@ public class Node extends Thread implements ClientInterface{
 		
 		catch(Exception e){
 			System.out.println("node exception " + e.toString());
+			e.printStackTrace();
 		}
 		}
 }

@@ -73,9 +73,11 @@ public class Master extends Thread implements MasterInterface{
 		return chunkList;
 	}
 	public void updateNodelist(String ip_addr){
-		ArrayList<String> newList = getNodeList();
-		newList.add(ip_addr);
-		setNodeList(newList);
+		synchronized(nodeList){
+			ArrayList<String> newList = getNodeList();
+			newList.add(ip_addr);
+			setNodeList(newList);
+		}
 	}
 	public void sendChunkList(String ip_addr){
 		//System.out.println("Send chunk list called");
@@ -100,15 +102,18 @@ public class Master extends Thread implements MasterInterface{
 		//System.out.println("got here");
 		
 		addChunk(filename, value);
+		synchronized (nodeList){
+
+			for (String addr: getNodeList()){
+				//System.out.println(addr);
+				sendChunkList(addr);
+			}	
 		
-		for (String addr: getNodeList()){
-			//System.out.println(addr);
-			sendChunkList(addr);
 		}	
 		//System.out.println("sent all chunk lists");
 		try{
 			System.out.println("waiting");
-			TimeUnit.SECONDS.sleep(2);
+		
 		}
 		catch(Exception e){
 			System.out.println("sleep didnt work");
