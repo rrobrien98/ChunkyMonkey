@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
+
 import java.util.Scanner;
 import java.util.ArrayList;
 import java.lang.Runnable;
@@ -20,12 +21,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Node extends Thread implements ClientInterface{
         public static ConcurrentHashMap<String, ArrayList<String[]>> chunkList = new ConcurrentHashMap<String, ArrayList<String[]>>();
 	public static final int CHUNK_SIZE = 500;
-	public static HashTable<String, Long> latencyList = new HashTable<String, Long>(); 		
+	public static Hashtable<String, Long> latencyList = new Hashtable<String, Long>(); 		
         public Node() {
 		
 	}
 		
-        public synchronized void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
+        public void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
                 chunkList = newList;
         	//System.out.println("set the new chunklist");
 	}
@@ -118,9 +119,9 @@ public class Node extends Thread implements ClientInterface{
 		}	
 		public void run(){
 			long start = System.currentTimeMillis();
-			System.out.println("START: " + start);
+			//System.out.println("START: " + start);
 			this.obj.getChunk(this.ip_addr, this.filename, this.chunk);
-			System.out.println("END: " + System.currentTimeMillis());
+			///System.out.println("END: " + System.currentTimeMillis());
 			this.time = (System.currentTimeMillis() - start);
 			System.out.println("DOWNLOAD TIME: " + this.time);
 			
@@ -128,6 +129,9 @@ public class Node extends Thread implements ClientInterface{
 		}
 		public long getTime(){
 			return this.time;
+		}
+		public String getIp(){
+			return this.ip_addr;
 		}
 
 		
@@ -159,8 +163,8 @@ public class Node extends Thread implements ClientInterface{
 		//System.out.println(response);
 
 
-
-		//while(true){
+		int repeater = 20;
+		while(repeater > 0){
 		//	System.out.println("Enter operation");	
 		//	Scanner op = new Scanner(System.in);
 		//	int operation = op.nextInt();
@@ -173,9 +177,9 @@ public class Node extends Thread implements ClientInterface{
 					//String info = fileInfo.nextLine();
 					//String[] infoArr = info.split(" ");
 				
-                                        //long start = System.currentTimeMillis();
+                                        long start = System.currentTimeMillis();
                                         response = stub.modifyList(args[2],thisIp,Integer.parseInt(args[3]));
-					//System.out.println("TIME: " + (System.currentTimeMillis() - start));
+					System.out.println("TIME: " + (System.currentTimeMillis() - start));
 
 					break;
 				case 3:
@@ -184,25 +188,48 @@ public class Node extends Thread implements ClientInterface{
 					//Scanner filename = new Scanner(System.in);
 					//String file = filename.nextLine();
 					ArrayList<String[]> chunks = chunkList.get(args[2]);
-					String[] toDownload = new String[100];
-					long start = System.currentTimeMillis();
+					String[][] toDownload = new String[100][2];
+					
 					for(String[] chunk: chunks){
 						if (latencyList.get(chunk[0]) == null){
-							latencyList.set(chunk[0], 0);
+							long initLatency = 0;
+							latencyList.put(chunk[0],initLatency);
 						}
-						if (toDownload[chunk[1]] == null || latencyList.get(done[chunk[1]]) > latencyList.get(chunk[0]) ){
+						
+						if (toDownload[Integer.parseInt(chunk[1])][0] == null  || latencyList.get(toDownload[Integer.parseInt(chunk[1])][0]) > latencyList.get(chunk[0]) ){
 							//obj.getChunk(chunk[0], file, Integer.parseInt(chunk[1]));
-							
-							Node.Downloader download = obj.new Downloader(chunk[0], args[2], Integer.parseInt(chunk[1]), obj);
-							Thread downloader = new Thread(download);
-							downloader.start();
-							System.out.println("finished running");
-							toDownload[chunk[1]] = chunk[0] ;
-							downloader.join();
-							System.out.println("download time from thread: " + download.getTime());
+							System.out.println("got here");
+							//Node.Downloader download = obj.new Downloader(chunk[0], args[2], Integer.parseInt(chunk[1]), obj);
+							//Thread downloader = new Thread(download);
+							//downloader.start();
+							//System.out.println("finished running");
+							toDownload[Integer.parseInt(chunk[1])] = chunk;
+							//downloader.join();
+							//System.out.println("download time from thread: " + download.getTime());
 						}
 					}
-										
+					ArrayList<Node.Downloader> downloads = new ArrayList<Node.Downloader>();
+					ArrayList<Thread> threads = new ArrayList<Thread>();
+
+					for (int i = 0; i < toDownload.length; i++){
+						if (toDownload[i][0] !=  null) {
+
+							Node.Downloader download = obj.new Downloader(toDownload[i][0], args[2], Integer.parseInt(toDownload[i][1]), obj);
+							downloads.add(download);
+							Thread downloader = new Thread(download);
+							threads.add(downloader);
+							downloader.start();
+						}
+					}				
+					for (Thread thread : threads){
+						thread.join();
+					}
+					for (Node.Downloader download : downloads){
+						latencyList.put(download.getIp(),download.getTime());
+						//System.out.println(latencyList.toString());
+
+					}
+					System.out.println("FINISHED ROUND");	
 					break;
 				case 2:
 					
@@ -217,11 +244,11 @@ public class Node extends Thread implements ClientInterface{
 					System.out.println("Invalid Command");
 					
 					break;
-				}
-				
 			}
+			repeater--;	
+		}
 		
-        	//}	
+        }	
 		
 		catch(Exception e){
 			System.out.println("node exception " + e.toString());

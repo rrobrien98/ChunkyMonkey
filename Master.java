@@ -94,7 +94,7 @@ public class Master extends Thread implements MasterInterface{
                       	e.printStackTrace();
 		}
 	}
-	public synchronized String modifyList(String filename, String ip_addr, int chunk){
+	public String modifyList(String filename, String ip_addr, int chunk){
                 //System.out.println("modify list called");
 		String[] value =  new String[2];
 		value[0] = ip_addr;
