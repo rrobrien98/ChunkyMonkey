@@ -109,7 +109,8 @@ public class Master extends Thread implements MasterInterface{
 	}
 	
 	/**
-	 * Method called by nodes which modify chunkList.
+	 * Method called by nodes which modify master's chunkList.
+	 * Master broadcast distributes chunkList to system. 
 	 */
 	public String modifyList(String filename, String ip_addr, int chunk){
 		String[] value =  new String[2];
