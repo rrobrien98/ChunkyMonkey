@@ -17,12 +17,13 @@ import java.util.ArrayList;
 import java.lang.Runnable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
+
 /*
- *This class runs the client program on a machine
- *It allows a user to add them self to the ChunkyMonkey system, and gives them the ability to declair files for download and to
- *download files from other nodes
- *To run this program, the command line argument: java -Djava.rmi.server.hostname=[your public IP] Node [your public IP] [master servers public IP]                                                                             54.153.0.234 100.26.104.102
-*/
+ * This class runs the client program on a machine
+ * It allows a user to add them self to the ChunkyMonkey system, and gives them the ability to declair files for download and to
+ * download files from other nodes
+ * To run this program, the command line argument: java -Djava.rmi.server.hostname=[your public IP] Node [your public IP] [master servers public IP]                                                                             54.153.0.234 100.26.104.102
+ */
 public class Node extends Thread implements ClientInterface{
    	
 	//this stores all the chunk data from all nodes in system
@@ -31,14 +32,16 @@ public class Node extends Thread implements ClientInterface{
 	//this stores the times it takes to download a chunk from other known nodes in the system
 	public static Hashtable<String, Long> latencyList = new Hashtable<String, Long>(); 		
         
-	
+	/**
+	 * Constructor 
+	 */
 	public Node() {
 		
 	}
 		
         /*
-	 *updates this clients chunk list to be the new one distributed by the master in the even of a write to the system
-	 *Args: ConcurrentHashMap<String, ArrayList<String[]>> newList is the new index of chunks to replace the old one
+	 * Updates this clients chunk list to be the new one distributed by the master in the even of a write to the system
+	 * Args: ConcurrentHashMap<String, ArrayList<String[]>> newList is the new index of chunks to replace the old one
 	 */
 	
 	public void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
@@ -57,10 +60,15 @@ public class Node extends Thread implements ClientInterface{
 	}
 	
 	/*
-	 *Called by the master
+	 * Called by the master to see if node is alive 
+	 */
 	public String heartbeat(){
 		return "Im not dead yet";
 	}
+	
+	/**
+	 * 
+	 */
 	public void run(){
 
                 try{
@@ -82,7 +90,9 @@ public class Node extends Thread implements ClientInterface{
                 }
         }
 	
-	
+	/**
+	 * 
+	 */
 	public void getChunk(String ip_addr, String filename, int chunk){
 		byte[] chunkData = new byte[CHUNK_SIZE];
 
@@ -100,7 +110,11 @@ public class Node extends Thread implements ClientInterface{
 		catch (Exception e){
 			System.out.println("Exception is caught" + e.toString());
 		}
-	}		
+	}
+	
+	/**
+	 * 
+	 */
 	public byte[] downloadChunk(String filename, int chunk){
 		byte[] data = new byte[CHUNK_SIZE];
 		try{	
@@ -119,13 +133,19 @@ public class Node extends Thread implements ClientInterface{
 		}
 		return data;
 	}
+	
+	/**
+	 * 
+	 */
         public  String updateList(ConcurrentHashMap<String, ArrayList<String[]>> list) {
                 
 		setChunkList(list);
                 return "new list recieved";
         }
 	
-	
+	/**
+	 * 
+	 */
 	private class Downloader implements Runnable{
 		String ip_addr;
 		String filename;
@@ -161,6 +181,9 @@ public class Node extends Thread implements ClientInterface{
 	
 	private static Node obj;
         
+	/**
+	 * 
+	 */
 	public static void main(String args[]) {
            	obj = new Node();
                 obj.start();
