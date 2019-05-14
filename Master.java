@@ -55,7 +55,7 @@ public class Master extends Thread implements MasterInterface{
                         registry.bind("Master", stub);
                         System.err.println("Master Server ready");
                 }
-                catch (Exception e){                                                                                         // Throwing an exception
+                catch (Exception e){                                                                                         
                         System.out.println (e.toString());
                 }	
 	}
@@ -180,6 +180,7 @@ public class Master extends Thread implements MasterInterface{
 			}
 			try {
 				TimeUnit.SECONDS.sleep(10000);
+				//Sleep so master only pings nodes every 10 seconds
 			}
 			catch (Exception e){
 				System.out.print("sleep didnt work");
