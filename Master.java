@@ -24,9 +24,13 @@ public class Master extends Thread implements MasterInterface{
 	
 	/**
 	 * Synchronized method that adds a file chunk to chunkList.
+	 * takes in both the new key(filename) and the value for that key (the list of chunks belonging to that filename)
+	 * synchronized to avoid concurrency modification of chunklist
 	 */
 	private static synchronized void addChunk(String key, String[] value){	
 		ArrayList<String[]> old_val = chunkList.get(key);	
+		
+		//create new entry if filename not already in chunklist
 		if(old_val == null){
 			old_val = new ArrayList<String[]>();
 			old_val.add(value);
@@ -46,10 +50,12 @@ public class Master extends Thread implements MasterInterface{
 	}
 	
 	/**
-	 * 
+	 * This is where we have the server side of our master running
+	 * This runs in a different thread so that the main method can be responsible for health checking the nodes
 	 */
         public void run(){
                 try {
+
                         MasterInterface stub = (MasterInterface) UnicastRemoteObject.exportObject(this, 8106);
                         Registry registry = LocateRegistry.createRegistry(8087);
                         registry.bind("Master", stub);
@@ -83,6 +89,7 @@ public class Master extends Thread implements MasterInterface{
 	
 	/**
 	 * Method that updates nodeList
+	 * is synchronized for the nodelist to avoid concurrency issues for chunklist distribution
 	 */
 	public void updateNodelist(String ip_addr){
 		synchronized(nodeList){
@@ -94,6 +101,7 @@ public class Master extends Thread implements MasterInterface{
 	
 	/**
 	 * Method that sends master's chunkList to node of specified IP address.
+	 *
 	 */
 	public void sendChunkList(String ip_addr){
 		try {
@@ -117,6 +125,8 @@ public class Master extends Thread implements MasterInterface{
 		value[0] = ip_addr;
 		value[1] = Integer.toString(chunk);
 		addChunk(filename, value);
+
+		//needs to be synchronized to avoid concurrent modification with node churn
 		synchronized (nodeList){
 			for (String addr: getNodeList()){
 				sendChunkList(addr);
@@ -133,7 +143,8 @@ public class Master extends Thread implements MasterInterface{
        	}
 	
 	/**
-	 * Method called by nodes which adds node to network 
+	 * Method called by nodes which adds node to network
+	 * responds by sending a chunklist to the new node it can use to download files
 	 */
        	public String addNode(String ip_addr){
                 updateNodelist(ip_addr);
@@ -145,8 +156,9 @@ public class Master extends Thread implements MasterInterface{
        	private static Master obj;
 	
 	/**
-	 * Main method which runs the master server. Includes constant health pings 
-	 * to nodes in system. 
+	 * Main method which runs the master server. 
+	 * the first task of this method is to start the master server running in its own thread
+	 * Next, it enters an infinite for loop of periodically checking on the health of its member nodes
 	 */
         public static void main(String[] args) {
                 obj = new Master();
@@ -230,11 +242,6 @@ public class Master extends Thread implements MasterInterface{
                                         }
                                 }
 
-
-
-
-
-
                         }
                         try{
                                 TimeUnit.SECONDS.sleep(10);
@@ -243,10 +250,8 @@ public class Master extends Thread implements MasterInterface{
                         catch (Exception e){
                                 System.out.print("sleep didnt work");
                         }
-                }
+              	}
 
-
-
-              }
+	}
 }
 

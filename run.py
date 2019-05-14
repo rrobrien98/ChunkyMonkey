@@ -1,6 +1,10 @@
 import os
 import time
 import random
+"""
+right now this script just performs writes from all nodes in the system, then downloads a file onto one node
+"""
+
 nodes = ["54.153.0.234","54.209.66.61","3.14.64.40","3.94.170.64","3.83.10.22","3.14.67.164", "54.193.125.205", "52.24.143.203", "34.221.171.231", "35.183.5.27", "35.182.195.196", "13.233.35.167", "13.233.83.84", "13.229.131.254" ,"3.0.94.77",  "13.54.28.88","54.250.199.120", "18.185.138.61", "52.59.249.174","34.249.192.207","54.229.234.118", "35.181.59.157", "35.181.43.210","18.130.245.254","35.178.15.57","54.233.223.52","18.228.190.7"]
 
 print(nodes)
@@ -39,7 +43,7 @@ else:
     #os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@3.14.64.40 java Node 3.14.64.40 100.26.104.102 3")
          
     counter = 0
-    while counter < (len(nodes) - 20):
+    while counter < (len(nodes)):
         i = os.fork()
         if i == 0:
         #    print(counter)
@@ -49,15 +53,9 @@ else:
         counter += 1
     #time.sleep(200)
     #print("downloading")
-    i = os.fork()
-    if i>0:
-        os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@54.252.169.133 java -Djava.rmi.server.hostname=54.252.169.133 Node 54.252.169.133 100.26.104.102 smallfile.txt 0")    
+    os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@54.252.169.133 java -Djava.rmi.server.hostname=54.252.169.133 Node 54.252.169.133 100.26.104.102 smallfile.txt 0")    
         
-    else:
-        j = os.fork()
-        if j> 0:
-            os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@54.252.169.133 java -Djava.rmi.server.hostname=54.252.169.133 Node 54.252.169.133 100.26.104.102 bigfile.txt")
-        else:
-            os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@" + nodes[0] + " java -Djava.rmi.server.hostname=" + nodes[0] + " Node "+nodes[0] +" 100.26.104.102 smallfile.txt")
+
+
 
 

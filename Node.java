@@ -89,6 +89,9 @@ public class Node extends Thread implements ClientInterface{
 	/**
 	 * Method that downloads specified file chunk from specified node and writes
 	 * it to local machine. 
+	 *
+	 * does so by calling download chunk on that method from the chunk information taken in as arguments
+	 * gets a byte array of file data from this method, which it then writes into local storage
 	 */
 	public void getChunk(String ip_addr, String filename, int chunk){
 		byte[] chunkData = new byte[CHUNK_SIZE];
@@ -97,7 +100,8 @@ public class Node extends Thread implements ClientInterface{
 			Registry registry = LocateRegistry.getRegistry(ip_addr, 8087);
 			ClientInterface stub = (ClientInterface) registry.lookup("Node");
 			chunkData = stub.downloadChunk(filename, chunk);
-
+			
+			//seek into the proper position in the new file and write the recieved array there
 			RandomAccessFile file = new RandomAccessFile(filename, "rw");
 			file.seek(chunk * CHUNK_SIZE);
 			
@@ -111,6 +115,10 @@ public class Node extends Thread implements ClientInterface{
 	
 	/**
 	 * Method called by peer nodes to download specified file chunk from this node. 
+	 *
+	 * only called by get chunk
+	 * asks a remote node to read a chunk of data from its local filesystem, then return it as a byte array
+	 *
 	 */
 	public byte[] downloadChunk(String filename, int chunk){
 		byte[] data = new byte[CHUNK_SIZE];
@@ -132,7 +140,8 @@ public class Node extends Thread implements ClientInterface{
 	}
 	
 	/**
-	 * Method called by the master which updates node's chunkList. 
+	 * Method called by the master which updates node's chunkList.
+	 * This is how the node stays up to date on which files are available to download 
 	 */
         public  String updateList(ConcurrentHashMap<String, ArrayList<String[]>> list) {
                 
@@ -159,21 +168,31 @@ public class Node extends Thread implements ClientInterface{
 			this.time = 0;
 		}	
 		
+		/*
+		 * starts a download of a single chunk, uses instance variables of class as chunk info
+		 */
 		public void run(){
 			long start = System.currentTimeMillis();
 			
 			this.obj.getChunk(this.ip_addr, this.filename, this.chunk);
-			;
+		
+			//records time taken to download the chunk and saves as instance variable	
 			this.time = (System.currentTimeMillis() - start);
 			System.out.println("Downloading Chunk " + this.chunk);
 			
 			return;
 		}
-	
+		/*
+		 * getter for time taken to download chunk
+		 * used for latency list data
+		 */
 		public long getTime(){
 			return this.time;
 		}
 		
+		/*
+		 * getter for ip address downloaded from
+		 */
 		public String getIp(){
 			return this.ip_addr;
 		}
@@ -200,7 +219,8 @@ public class Node extends Thread implements ClientInterface{
 	        	Registry registry = LocateRegistry.getRegistry(masterIp, 8087);
 	        	MasterInterface stub = (MasterInterface) registry.lookup("Master");
 			String response = stub.addNode(thisIp); 
-			//Node gets added to network 
+		
+			//Node gets added to network, only done once per node 
 			while(true){
 		
 				System.out.println("Enter operation: \n1) Make file available to system for download \n2) Download a file \n3) See files available");	
@@ -214,10 +234,10 @@ public class Node extends Thread implements ClientInterface{
 						String info = fileInfo.nextLine();
 						String[] infoArr = info.split(" ");
 					
-	                                        long start = System.currentTimeMillis();
+	                                        
 	                                        response = stub.modifyList(infoArr[0],thisIp,Integer.parseInt(infoArr[1]));
 						//File chunk gets added to system
-						System.out.println("TIME: " + (System.currentTimeMillis() - start));
+						
 						break;
 					case 2:
 						
@@ -228,15 +248,20 @@ public class Node extends Thread implements ClientInterface{
 						//List of all chunk index locations for file
 						
 						String[][] toDownload = new String[100][2]; 
-						//Array 
+						//Array to hold all the chunks to be downloaded, assumed that no file will be larger than 100 chunks
+						
 						
 						synchronized(chunkList){
+							
+							//loop through chunks of file to find ones we want to download
 							for(String[] chunk: chunks){
 								if (latencyList.get(chunk[0]) == null){
 									long initLatency = 0;
 									latencyList.put(chunk[0],initLatency);
 								}
 								
+								//intelligent selection: grabs a chunk to download if we still need that chunk or if a 
+								//faster location to download from is found
 								if (toDownload[Integer.parseInt(chunk[1])][0] == null  || latencyList.get(toDownload[Integer.parseInt(chunk[1])][0]) > latencyList.get(chunk[0]) ){
 								
 									toDownload[Integer.parseInt(chunk[1])] = chunk;
@@ -247,7 +272,7 @@ public class Node extends Thread implements ClientInterface{
 						ArrayList<Node.Downloader> downloads = new ArrayList<Node.Downloader>();
 						ArrayList<Thread> threads = new ArrayList<Thread>();
 						
-	
+						//create downloader objects and start downloads for all selected nodes
 						for (int i = 0; i < toDownload.length; i++){
 							if (toDownload[i][0] !=  null) {
 								
@@ -257,11 +282,14 @@ public class Node extends Thread implements ClientInterface{
 								threads.add(downloader);
 								downloader.start();
 							}
-						}				
+						}
+						
+						//wait for all downloads to finish				
 						for (Thread thread : threads){
 							thread.join();
 						}
 						
+						//retrieve download time info from all downloaders, and update latency list
 						for (Node.Downloader download : downloads){
 							latencyList.put(download.getIp(),download.getTime());
 						}
