@@ -7,71 +7,83 @@ import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+/**
+ * This class runs the master program on a machine. Master monitors 
+ * active nodes in the system. In charge of adding nodes to the 
+ * system, and the distribution of file chunk index locations to nodes. 
+ * Includes methods that will be called upon by nodes in the system. 
+ * Extends Thread because master acts as a server and a client. 
+ */
 public class Master extends Thread implements MasterInterface{
-	private static ConcurrentHashMap<String, ArrayList<String[]>> chunkList = new ConcurrentHashMap<String, ArrayList<String[]>>();
-        private static ArrayList<String> nodeList = new ArrayList<String>();
-	private static synchronized void addChunk(String key, String[] value){
-		
-		ArrayList<String[]> old_val = chunkList.get(key);	
-		//System.out.println("add chunk called");
-
-		
 	
-
-		
+	//This stores all the chunk data from all nodes in system
+	private static ConcurrentHashMap<String, ArrayList<String[]>> chunkList = new ConcurrentHashMap<String, ArrayList<String[]>>();
+        
+	//This stores all active nodes in the system
+	private static ArrayList<String> nodeList = new ArrayList<String>();
+	
+	/**
+	 * Synchronized method that adds a file chunk to chunkList.
+	 */
+	private static synchronized void addChunk(String key, String[] value){	
+		ArrayList<String[]> old_val = chunkList.get(key);	
 		if(old_val == null){
 			old_val = new ArrayList<String[]>();
 			old_val.add(value);
 			chunkList.put(key, old_val);
-			//System.out.println("chunk put");
 		}
 		else{
 			old_val.add(value);
 			chunkList.put(key, old_val);
-
                 }
-
-
-	
-	
 	}
-		
+	
+	/**
+	 * Constructor 
+	 */
 	private Master() {
 		this.chunkList = chunkList;
 	}
+	
+	/**
+	 * 
+	 */
         public void run(){
-
-                try
-                {
-                        //System.out.println("before stub");
+                try {
                         MasterInterface stub = (MasterInterface) UnicastRemoteObject.exportObject(this, 8106);
-
-                        // Bind the remote object's stub in the registry
-                        //System.out.println("before create reg");
                         Registry registry = LocateRegistry.createRegistry(8087);
                         registry.bind("Master", stub);
-
                         System.err.println("Master Server ready");
-
-			
-
                 }
                 catch (Exception e){                                                                                         // Throwing an exception
                         System.out.println (e.toString());
-                }
-		
+                }	
 	}
+	
+	/**
+	 * Getter method to get nodeList
+	 */
 	public static ArrayList<String> getNodeList(){
 		return nodeList;
 	}
-	    
+	
+	/**
+	 * Setter method to set nodeList
+	 */
         public static void setNodeList(ArrayList<String> newList){
                 nodeList = newList;
         }
-
+	
+	/**
+	 * Getter method to get chunkList
+	 */
 	public static ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
 		return chunkList;
 	}
+	
+	/**
+	 * Method that updates nodeList
+	 */
 	public void updateNodelist(String ip_addr){
 		synchronized(nodeList){
 			ArrayList<String> newList = getNodeList();
@@ -79,39 +91,37 @@ public class Master extends Thread implements MasterInterface{
 			setNodeList(newList);
 		}
 	}
+	
+	/**
+	 * Method that sends master's chunkList to node of specified IP address.
+	 */
 	public void sendChunkList(String ip_addr){
-		//System.out.println("Send chunk list called");
 		try {
                 	      	
 			Registry registry = LocateRegistry.getRegistry(ip_addr, 8087);
-                      	//System.out.println("registry found");
 			ClientInterface stub = (ClientInterface) registry.lookup("Node");
-                      	//System.out.println("stub created");
-			String response = stub.updateList(this.getChunkList());
-                      	
-                } catch (Exception e) {
+			String response = stub.updateList(this.getChunkList());                  	
+                } 
+		catch (Exception e) {
                       	System.err.println("Client exception: " + e.toString());
                       	e.printStackTrace();
 		}
 	}
+	
+	/**
+	 * Method called by nodes which modify chunkList.
+	 */
 	public String modifyList(String filename, String ip_addr, int chunk){
-                //System.out.println("modify list called");
 		String[] value =  new String[2];
 		value[0] = ip_addr;
 		value[1] = Integer.toString(chunk);
-		//System.out.println("got here");
-		
 		addChunk(filename, value);
 		synchronized (nodeList){
-
 			for (String addr: getNodeList()){
-				//System.out.println(addr);
 				sendChunkList(addr);
 			}	
-		
 		}	
-		//System.out.println("sent all chunk lists");
-		try{
+		try {
 			System.out.println("waiting");
 		
 		}
@@ -120,19 +130,28 @@ public class Master extends Thread implements MasterInterface{
 		}
 		return getChunkList().toString();
        	}
+	
+	/**
+	 * Method called by nodes which adds node to network 
+	 */
        	public String addNode(String ip_addr){
                 updateNodelist(ip_addr);
                 this.sendChunkList(ip_addr);
 		return "nodelist updated";
 
         }
+	
        	private static Master obj;
+	
+	/**
+	 * Main method which runs the master server. Includes constant health pings 
+	 * to nodes in system. 
+	 */
         public static void main(String[] args) {
                 obj = new Master();
                 obj.start();
 
-		while(true){
-		
+		while(true){	
 			int changed = 0;
 			ArrayList<String> badList = new ArrayList<String>();
 			synchronized(nodeList){
@@ -154,24 +173,19 @@ public class Master extends Thread implements MasterInterface{
 					for (String[] chunk : chunkList.get(file)){
 						if (badList.contains(chunk[0])){
 				        	        ArrayList<String[]> old_val = chunkList.get(file);
-				                
-                      				old_val.remove(chunk);
-                        				//chunkList.put(file, old_val);
-					}
+                      					old_val.remove(chunk);
+						}
 					}
 				}
 			}
-			try{
+			try {
 				TimeUnit.SECONDS.sleep(10000);
-		
 			}
 			catch (Exception e){
 				System.out.print("sleep didnt work");
 			}
 		}
-                
-
-
-              }
+		    
+	}
 }
                                                    
