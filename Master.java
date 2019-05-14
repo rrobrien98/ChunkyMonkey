@@ -152,42 +152,101 @@ public class Master extends Thread implements MasterInterface{
                 obj = new Master();
                 obj.start();
 
-		while(true){	
-			int changed = 0;
-			ArrayList<String> badList = new ArrayList<String>();
-			synchronized(nodeList){
-				for (String addr : nodeList){
-					try {
-						Registry registry = LocateRegistry.getRegistry(addr, 8087);
-						ClientInterface stub = (ClientInterface) registry.lookup("Node");
-						String response = stub.heartbeat();
-					}
-					catch (Exception e) {
-						nodeList.remove(addr);
-						badList.add(addr);
-						changed = 1;
-					}
-				}
-			}
-			if (changed == 1){
-				for (String file: chunkList.keySet()){
-					for (String[] chunk : chunkList.get(file)){
-						if (badList.contains(chunk[0])){
-				        	        ArrayList<String[]> old_val = chunkList.get(file);
-                      					old_val.remove(chunk);
-						}
-					}
-				}
-			}
-			try {
-				TimeUnit.SECONDS.sleep(10000);
-				//Sleep so master only pings nodes every 10 seconds
-			}
-			catch (Exception e){
-				System.out.print("sleep didnt work");
-			}
-		}
-		    
-	}
+                //will check for failures every 10 seconds
+                while(true){
+
+                        int changed = 0;
+                        ArrayList<String> badList = new ArrayList<String>();
+                        synchronized(nodeList){
+
+                                //attempt to contact every node in node list, if we dont recieve reply, delete this node from the node list
+                                for (String addr : nodeList){
+                                        try {
+                                                Registry registry = LocateRegistry.getRegistry(addr, 8087);
+                                                ClientInterface stub = (ClientInterface) registry.lookup("Node");
+                                                String response = stub.heartbeat();
+                                        }
+                                        catch (Exception e) {
+
+
+
+
+                                                badList.add(addr);
+                                                changed = 1;
+                                        }
+                                }
+                                //done outside loop through nodelist to avoid concurrency issues
+                                for(String addr: badList){
+                                        nodeList.remove(addr);
+                                }
+                        }
+                        if (changed == 1){
+                                ArrayList<String> newLists = new ArrayList<String>();
+                                synchronized (chunkList){
+
+                                        //find all chunks that are held on the nodes discovered to be bad
+                                        for (String file: chunkList.keySet()){
+                                                ArrayList<String[]> badChunks = new ArrayList<String[]>();
+
+                                                for (String[] chunk : chunkList.get(file)){
+
+                                                        if (badList.contains(chunk[0])){
+                                                                badChunks.add(chunk);
+                                                        }
+                                                }
+
+                                                //again all modification to chunklists must be done outside loop to avoid concurrency issues
+                                                for (String[] chunk: badChunks){
+                                                        ArrayList<String[]> old_val = chunkList.get(file);
+
+                                                        old_val.remove(chunk);
+                                                }
+                                        }
+
+
+                                        //now find all the files that need to be removed from the file list, ie the ones who dont have any chunks
+                                        //stored on good nodes now
+                                        ArrayList<String> toRemove = new ArrayList<String>();
+
+
+                                        for (String file: chunkList.keySet()){
+                                                if(chunkList.get(file).size() == 0){
+                                                        toRemove.add(file);
+
+                                                }
+                                        }
+
+                                        for (String file: toRemove){
+                                                chunkList.remove(file);
+                                        }
+                                        //send out new chunk lists to every node in system
+                                        synchronized (nodeList){
+
+                                                for (String addr: getNodeList()){
+
+                                                        obj.sendChunkList(addr);
+                                                }
+
+                                        }
+                                }
+
+
+
+
+
+
+                        }
+                        try{
+                                TimeUnit.SECONDS.sleep(10);
+
+                        }
+                        catch (Exception e){
+                                System.out.print("sleep didnt work");
+                        }
+                }
+
+
+
+              }
 }
-                                                   
+
