@@ -38,12 +38,11 @@ public class Node extends Thread implements ClientInterface{
 	public Node() {
 		
 	}
-		
+	
         /*
 	 * Updates this clients chunk list to be the new one distributed by the master in the even of a write to the system
 	 * Args: ConcurrentHashMap<String, ArrayList<String[]>> newList is the new index of chunks to replace the old one
 	 */
-	
 	public void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
                 //synchronized so that we dont get concurrent modification errors when looping through chunklist for downloads
 		synchronized(chunkList){
@@ -60,7 +59,7 @@ public class Node extends Thread implements ClientInterface{
 	}
 	
 	/*
-	 * Called by the master to see if node is alive 
+	 * Called by the master to check if node is alive 
 	 */
 	public String heartbeat(){
 		return "Im not dead yet";
@@ -75,14 +74,10 @@ public class Node extends Thread implements ClientInterface{
 
                         ClientInterface stub = (ClientInterface) UnicastRemoteObject.exportObject(this, 8002);
 
-                        //Bind the remote object's stub in the registry
-
                         Registry registry = LocateRegistry.createRegistry(8087);
                         registry.bind("Node", stub);
 
                         System.err.println("Server ready");
-
-
 
                 }
                 catch (Exception e){                                                                                         // Throwing an exception
@@ -91,7 +86,8 @@ public class Node extends Thread implements ClientInterface{
         }
 	
 	/**
-	 * 
+	 * Method that downloads specified file chunk from specified node and writes
+	 * it to local machine. 
 	 */
 	public void getChunk(String ip_addr, String filename, int chunk){
 		byte[] chunkData = new byte[CHUNK_SIZE];
@@ -113,7 +109,7 @@ public class Node extends Thread implements ClientInterface{
 	}
 	
 	/**
-	 * 
+	 * Method called by peer nodes to download specified file chunk from this node. 
 	 */
 	public byte[] downloadChunk(String filename, int chunk){
 		byte[] data = new byte[CHUNK_SIZE];
@@ -135,7 +131,7 @@ public class Node extends Thread implements ClientInterface{
 	}
 	
 	/**
-	 * 
+	 * Method called by the master which updates node's chunkList. 
 	 */
         public  String updateList(ConcurrentHashMap<String, ArrayList<String[]>> list) {
                 
@@ -144,7 +140,8 @@ public class Node extends Thread implements ClientInterface{
         }
 	
 	/**
-	 * 
+	 * Inner Class that represents a file chunk download. 
+	 * Used so we can simultaneously download chunks.
 	 */
 	private class Downloader implements Runnable{
 		String ip_addr;
@@ -152,6 +149,7 @@ public class Node extends Thread implements ClientInterface{
 		int chunk;
 		Node obj;
 		long time;	
+		
 		Downloader(String ip_addr, String filename, int chunk, Node obj){
 			this.ip_addr = ip_addr;
 			this.filename = filename;
@@ -159,6 +157,7 @@ public class Node extends Thread implements ClientInterface{
 			this.obj = obj;
 			this.time = 0;
 		}	
+		
 		public void run(){
 			long start = System.currentTimeMillis();
 			
@@ -169,20 +168,20 @@ public class Node extends Thread implements ClientInterface{
 			
 			return;
 		}
+	
 		public long getTime(){
 			return this.time;
 		}
+		
 		public String getIp(){
 			return this.ip_addr;
 		}
-
-		
 	}
 	
 	private static Node obj;
         
 	/**
-	 * 
+	 * Main method which runs client server. Contains simple user interface. 
 	 */
 	public static void main(String args[]) {
            	obj = new Node();
@@ -267,9 +266,7 @@ public class Node extends Thread implements ClientInterface{
 						for(String key: chunkList.keySet()){
 							System.out.println(key);
 						}
-									
-						
-					
+											
 						break;
 					default:
 						System.out.println("Invalid Command");
@@ -277,8 +274,7 @@ public class Node extends Thread implements ClientInterface{
 						break;
 				}
 	
-			}
-			
+			}	
         	
 		}
 		catch(Exception e){
