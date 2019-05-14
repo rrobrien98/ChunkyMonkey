@@ -12,36 +12,58 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.RandomAccessFile;
 import java.util.Arrays;
-
 import java.util.Scanner;
 import java.util.ArrayList;
 import java.lang.Runnable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
+/*
+ *This class runs the client program on a machine
+ *It allows a user to add them self to the ChunkyMonkey system, and gives them the ability to declair files for download and to
+ *download files from other nodes
+ *To run this program, the command line argument: java -Djava.rmi.server.hostname=[your public IP] Node [your public IP] [master servers public IP]                                                                             54.153.0.234 100.26.104.102
+*/
 public class Node extends Thread implements ClientInterface{
-        public static ConcurrentHashMap<String, ArrayList<String[]>> chunkList = new ConcurrentHashMap<String, ArrayList<String[]>>();
+   	
+	//this stores all the chunk data from all nodes in system
+	public static ConcurrentHashMap<String, ArrayList<String[]>> chunkList = new ConcurrentHashMap<String, ArrayList<String[]>>();
 	public static final int CHUNK_SIZE = 500;
+	//this stores the times it takes to download a chunk from other known nodes in the system
 	public static Hashtable<String, Long> latencyList = new Hashtable<String, Long>(); 		
-        public Node() {
+        
+	
+	public Node() {
 		
 	}
 		
-        public void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
-                synchronized(chunkList){
+        /*
+	 *updates this clients chunk list to be the new one distributed by the master in the even of a write to the system
+	 *Args: ConcurrentHashMap<String, ArrayList<String[]>> newList is the new index of chunks to replace the old one
+	 */
+	
+	public void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
+                //synchronized so that we dont get concurrent modification errors when looping through chunklist for downloads
+		synchronized(chunkList){
 			chunkList = newList;
 		}
-		//System.out.println("set the new chunklist");
+		
 	}
-        public ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
+        
+	/*
+	 * Simple getter for the chunklist
+	 */
+	public ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
 		return this.chunkList;
 	}
+	
+	/*
+	 *Called by the master
 	public String heartbeat(){
 		return "Im not dead yet";
 	}
 	public void run(){
 
-                try
-                {
+                try{
 
                         ClientInterface stub = (ClientInterface) UnicastRemoteObject.exportObject(this, 8002);
 
@@ -59,6 +81,8 @@ public class Node extends Thread implements ClientInterface{
                         System.out.println ("Exception is caught" + e.toString());
                 }
         }
+	
+	
 	public void getChunk(String ip_addr, String filename, int chunk){
 		byte[] chunkData = new byte[CHUNK_SIZE];
 
@@ -69,8 +93,7 @@ public class Node extends Thread implements ClientInterface{
 
 			RandomAccessFile file = new RandomAccessFile(filename, "rw");
 			file.seek(chunk * CHUNK_SIZE);
-			//String chunkString = Arrays.toString(chunkData);
-			//System.out.println(chunkString);
+			
 			file.write(chunkData);
 			file.close();
 		}
@@ -81,17 +104,14 @@ public class Node extends Thread implements ClientInterface{
 	public byte[] downloadChunk(String filename, int chunk){
 		byte[] data = new byte[CHUNK_SIZE];
 		try{	
-			//File data_file = new File(filename);
+			
 			RandomAccessFile file = new RandomAccessFile(filename, "rw");
 			file.seek(chunk * CHUNK_SIZE);
-			//Scanner scanner = new Scanner(new File(filename)); 
-			//while (scanner.hasNextLine()) {	
-			//	System.out.println(scanner.nextLine());//scanner.nextLine());
-			//}
+			
 			file.read(data);
 			
 			file.close();
-			//System.out.println(Arrays.toString(data));
+			
 		}
 		catch (Exception e){
 			System.out.println("Exception is caught" + e.toString());
@@ -100,7 +120,7 @@ public class Node extends Thread implements ClientInterface{
 		return data;
 	}
         public  String updateList(ConcurrentHashMap<String, ArrayList<String[]>> list) {
-                //System.out.println("called update list");
+                
 		setChunkList(list);
                 return "new list recieved";
         }
@@ -121,9 +141,9 @@ public class Node extends Thread implements ClientInterface{
 		}	
 		public void run(){
 			long start = System.currentTimeMillis();
-			//System.out.println("START: " + start);
+			
 			this.obj.getChunk(this.ip_addr, this.filename, this.chunk);
-			///System.out.println("END: " + System.currentTimeMillis());
+			;
 			this.time = (System.currentTimeMillis() - start);
 			System.out.println("Downloading Chunk " + this.chunk);
 			
@@ -140,39 +160,29 @@ public class Node extends Thread implements ClientInterface{
 	}
 	
 	private static Node obj;
-        public static void main(String args[]) {
+        
+	public static void main(String args[]) {
            	obj = new Node();
                 obj.start();
 		
-			
-		
                 if (args.length != 2){
-			System.out.println("Need IP address of node as argument");
+			System.out.println("Need IP address of this node and master as arguments");
 			return;
 		}
 
 		String thisIp = args[0];
                 String masterIp = args[1];
-		//System.out.println("our ip: " + thisIp);
+		
 		try{
-		//long start = System.currentTimeMillis();
 	        	Registry registry = LocateRegistry.getRegistry(masterIp, 8087);
 	        	MasterInterface stub = (MasterInterface) registry.lookup("Master");
-	        
 			String response = stub.addNode(thisIp);
-	        //System.out.println("TIME: " + (System.currentTimeMillis() - start));
-
-		//System.out.println(response);
-
-
 			while(true){
 		
 				System.out.println("Enter operation: \n1) Make file available to system for download \n2) Download a file \n3) See files available");	
 				Scanner op = new Scanner(System.in);
 				int operation = op.nextInt();
-				
 	
-				//user specifies what type of command they want to perform
 				switch (operation) {
 					case 1:
 						System.out.println("Enter file info in format of [filename] [chunk]");
@@ -201,15 +211,9 @@ public class Node extends Thread implements ClientInterface{
 								}
 								
 								if (toDownload[Integer.parseInt(chunk[1])][0] == null  || latencyList.get(toDownload[Integer.parseInt(chunk[1])][0]) > latencyList.get(chunk[0]) ){
-								//obj.getChunk(chunk[0], file, Integer.parseInt(chunk[1]));
 								
-								//Node.Downloader download = obj.new Downloader(chunk[0], args[2], Integer.parseInt(chunk[1]), obj);
-								//Thread downloader = new Thread(download);
-								//downloader.start();
-								//System.out.println("finished running");
 									toDownload[Integer.parseInt(chunk[1])] = chunk;
-									//downloader.join();
-									//System.out.println("download time from thread: " + download.getTime());
+									
 								}
 							}
 						}
@@ -231,10 +235,9 @@ public class Node extends Thread implements ClientInterface{
 						}
 						for (Node.Downloader download : downloads){
 							latencyList.put(download.getIp(),download.getTime());
-							//System.out.println(latencyList.toString());
-	
+
 						}
-						System.out.println("FINISHED ROUND");	
+					
 						break;
 					case 3:
 						
