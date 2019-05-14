@@ -80,7 +80,7 @@ public class Node extends Thread implements ClientInterface{
                         System.err.println("Server ready");
 
                 }
-                catch (Exception e){                                                                                         // Throwing an exception
+                catch (Exception e){                                                                                         
                         System.out.println ("Exception is caught" + e.toString());
                 }
         }
@@ -223,7 +223,7 @@ public class Node extends Thread implements ClientInterface{
 						Scanner filename = new Scanner(System.in);
 						String file = filename.nextLine();
 						ArrayList<String[]> chunks = chunkList.get(file);
-						String[][] toDownload = new String[100][2];
+						String[][] toDownload = new String[100][2]; 
 						
 						synchronized(chunkList){
 							for(String[] chunk: chunks){
