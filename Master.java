@@ -61,15 +61,15 @@ public class Master extends Thread implements MasterInterface{
                 }
 		
 	}
-	public static synchronized ArrayList<String> getNodeList(){
+	public static ArrayList<String> getNodeList(){
 		return nodeList;
 	}
 	    
-        public static synchronized void setNodeList(ArrayList<String> newList){
+        public static void setNodeList(ArrayList<String> newList){
                 nodeList = newList;
         }
 
-	public static synchronized ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
+	public static ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
 		return chunkList;
 	}
 	public void updateNodelist(String ip_addr){
@@ -131,55 +131,47 @@ public class Master extends Thread implements MasterInterface{
                 obj = new Master();
                 obj.start();
 
-		//while(true){
-		//	int changed = 0;
-		//	ArrayList<String> badList = new ArrayList<String>();
-		//	for (String addr : nodeList){
-		//		try {
-		//			Registry registry = LocateRegistry.getRegistry(addr, 8087);
-		//			ClientInterface stub = (ClientInterface) registry.lookup("Node");
-		//			String response = stub.heartbeat();
-		//		}
-		//		catch (Exception e) {
-		//			nodeList.remove(addr);
-		//			badList.add(addr);
-		//			changed = 1;
-		//		}
-		//	}
-		//	if (changed == 1){
-		//		for (String file: chunkList.keySet()){
-		//			for (String[] chunk : chunkList.get(file)){
-		//				if (badList.contains(chunk[0])){
-		//		        	        ArrayList<String[]> old_val = chunkList.get(file);
-		//		                
-                 //      				//old_val.remove(chunk);
-                //        				//chunkList.put(file, old_val);
-		//				}
-		//			}
-		//		}
-		//	}
-		//	try{
-		//		TimeUnit.SECONDS.sleep(10000);
-		//
-		//	}
-		//	catch (Exception e){
-		//		System.out.print("sleep didnt work");
-		//	}
-		//}
+		while(true){
+		
+			int changed = 0;
+			ArrayList<String> badList = new ArrayList<String>();
+			synchronized(nodeList){
+				for (String addr : nodeList){
+					try {
+						Registry registry = LocateRegistry.getRegistry(addr, 8087);
+						ClientInterface stub = (ClientInterface) registry.lookup("Node");
+						String response = stub.heartbeat();
+					}
+					catch (Exception e) {
+						nodeList.remove(addr);
+						badList.add(addr);
+						changed = 1;
+					}
+				}
+			}
+			if (changed == 1){
+				for (String file: chunkList.keySet()){
+					for (String[] chunk : chunkList.get(file)){
+						if (badList.contains(chunk[0])){
+				        	        ArrayList<String[]> old_val = chunkList.get(file);
+				                
+                      				old_val.remove(chunk);
+                        				//chunkList.put(file, old_val);
+					}
+					}
+				}
+			}
+			try{
+				TimeUnit.SECONDS.sleep(10000);
+		
+			}
+			catch (Exception e){
+				System.out.print("sleep didnt work");
+			}
+		}
                 
 
 
-        //String host = (args.length < 1) ? null : args[0];
-
-                //try {
-                //      Registry registry = LocateRegistry.getRegistry("54.209.66.61", 8084);
-                //      ClientInterface stub = (ClientInterface) registry.lookup("Node");
-                //      String response = stub.updateList();
-                //      System.out.println("response: " + response);
-                //} catch (Exception e) {
-                //      System.err.println("Client exception: " + e.toString());
-                //      e.printStackTrace();
-                //}
-        }
+              }
 }
                                                    

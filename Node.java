@@ -27,10 +27,12 @@ public class Node extends Thread implements ClientInterface{
 	}
 		
         public void setChunkList(ConcurrentHashMap<String, ArrayList<String[]>> newList){
-                chunkList = newList;
-        	//System.out.println("set the new chunklist");
+                synchronized(chunkList){
+			chunkList = newList;
+		}
+		//System.out.println("set the new chunklist");
 	}
-        public synchronized ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
+        public ConcurrentHashMap<String, ArrayList<String[]>> getChunkList(){
 		return this.chunkList;
 	}
 	public String heartbeat(){
@@ -97,7 +99,7 @@ public class Node extends Thread implements ClientInterface{
 		}
 		return data;
 	}
-        public synchronized String updateList(ConcurrentHashMap<String, ArrayList<String[]>> list) {
+        public  String updateList(ConcurrentHashMap<String, ArrayList<String[]>> list) {
                 //System.out.println("called update list");
 		setChunkList(list);
                 return "new list recieved";
@@ -123,7 +125,7 @@ public class Node extends Thread implements ClientInterface{
 			this.obj.getChunk(this.ip_addr, this.filename, this.chunk);
 			///System.out.println("END: " + System.currentTimeMillis());
 			this.time = (System.currentTimeMillis() - start);
-			System.out.println("DOWNLOAD TIME: " + this.time);
+			System.out.println("Downloading Chunk " + this.chunk);
 			
 			return;
 		}
@@ -144,7 +146,7 @@ public class Node extends Thread implements ClientInterface{
 		
 			
 		
-                if (args.length < 2){
+                if (args.length != 2){
 			System.out.println("Need IP address of node as argument");
 			return;
 		}
@@ -154,106 +156,109 @@ public class Node extends Thread implements ClientInterface{
 		//System.out.println("our ip: " + thisIp);
 		try{
 		//long start = System.currentTimeMillis();
-	        Registry registry = LocateRegistry.getRegistry(masterIp, 8087);
-	        MasterInterface stub = (MasterInterface) registry.lookup("Master");
+	        	Registry registry = LocateRegistry.getRegistry(masterIp, 8087);
+	        	MasterInterface stub = (MasterInterface) registry.lookup("Master");
 	        
-		String response = stub.addNode(thisIp);
+			String response = stub.addNode(thisIp);
 	        //System.out.println("TIME: " + (System.currentTimeMillis() - start));
 
 		//System.out.println(response);
 
 
-		int repeater = 20;
-		while(repeater > 0){
-		//	System.out.println("Enter operation");	
-		//	Scanner op = new Scanner(System.in);
-		//	int operation = op.nextInt();
-			
-
-			//user specifies what type of command they want to perform
-			switch (args.length) {
-				case 4:
-					//Scanner fileInfo = new Scanner(System.in);
-					//String info = fileInfo.nextLine();
-					//String[] infoArr = info.split(" ");
+			while(true){
+		
+				System.out.println("Enter operation: \n1) Make file available to system for download \n2) Download a file \n3) See files available");	
+				Scanner op = new Scanner(System.in);
+				int operation = op.nextInt();
 				
-                                        long start = System.currentTimeMillis();
-                                        response = stub.modifyList(args[2],thisIp,Integer.parseInt(args[3]));
-					System.out.println("TIME: " + (System.currentTimeMillis() - start));
-
-					break;
-				case 3:
+	
+				//user specifies what type of command they want to perform
+				switch (operation) {
+					case 1:
+						System.out.println("Enter file info in format of [filename] [chunk]");
+						Scanner fileInfo = new Scanner(System.in);
+						String info = fileInfo.nextLine();
+						String[] infoArr = info.split(" ");
 					
-					
-					//Scanner filename = new Scanner(System.in);
-					//String file = filename.nextLine();
-					ArrayList<String[]> chunks = chunkList.get(args[2]);
-					String[][] toDownload = new String[100][2];
-					
-					for(String[] chunk: chunks){
-						if (latencyList.get(chunk[0]) == null){
-							long initLatency = 0;
-							latencyList.put(chunk[0],initLatency);
-						}
+	                                        long start = System.currentTimeMillis();
+	                                        response = stub.modifyList(infoArr[0],thisIp,Integer.parseInt(infoArr[1]));
+						System.out.println("TIME: " + (System.currentTimeMillis() - start));
+	
+						break;
+					case 2:
 						
-						if (toDownload[Integer.parseInt(chunk[1])][0] == null  || latencyList.get(toDownload[Integer.parseInt(chunk[1])][0]) > latencyList.get(chunk[0]) ){
-							//obj.getChunk(chunk[0], file, Integer.parseInt(chunk[1]));
-							System.out.println("got here");
-							//Node.Downloader download = obj.new Downloader(chunk[0], args[2], Integer.parseInt(chunk[1]), obj);
-							//Thread downloader = new Thread(download);
-							//downloader.start();
-							//System.out.println("finished running");
-							toDownload[Integer.parseInt(chunk[1])] = chunk;
-							//downloader.join();
-							//System.out.println("download time from thread: " + download.getTime());
+						System.out.println("Enter name of File you would like to download");
+						Scanner filename = new Scanner(System.in);
+						String file = filename.nextLine();
+						ArrayList<String[]> chunks = chunkList.get(file);
+						String[][] toDownload = new String[100][2];
+						
+						synchronized(chunkList){
+							for(String[] chunk: chunks){
+								if (latencyList.get(chunk[0]) == null){
+									long initLatency = 0;
+									latencyList.put(chunk[0],initLatency);
+								}
+								
+								if (toDownload[Integer.parseInt(chunk[1])][0] == null  || latencyList.get(toDownload[Integer.parseInt(chunk[1])][0]) > latencyList.get(chunk[0]) ){
+								//obj.getChunk(chunk[0], file, Integer.parseInt(chunk[1]));
+								
+								//Node.Downloader download = obj.new Downloader(chunk[0], args[2], Integer.parseInt(chunk[1]), obj);
+								//Thread downloader = new Thread(download);
+								//downloader.start();
+								//System.out.println("finished running");
+									toDownload[Integer.parseInt(chunk[1])] = chunk;
+									//downloader.join();
+									//System.out.println("download time from thread: " + download.getTime());
+								}
+							}
 						}
-					}
-					ArrayList<Node.Downloader> downloads = new ArrayList<Node.Downloader>();
-					ArrayList<Thread> threads = new ArrayList<Thread>();
-
-					for (int i = 0; i < toDownload.length; i++){
-						if (toDownload[i][0] !=  null) {
-
-							Node.Downloader download = obj.new Downloader(toDownload[i][0], args[2], Integer.parseInt(toDownload[i][1]), obj);
-							downloads.add(download);
-							Thread downloader = new Thread(download);
-							threads.add(downloader);
-							downloader.start();
+						ArrayList<Node.Downloader> downloads = new ArrayList<Node.Downloader>();
+						ArrayList<Thread> threads = new ArrayList<Thread>();
+	
+						for (int i = 0; i < toDownload.length; i++){
+							if (toDownload[i][0] !=  null) {
+								
+								Node.Downloader download = obj.new Downloader(toDownload[i][0], file, Integer.parseInt(toDownload[i][1]), obj);
+								downloads.add(download);
+								Thread downloader = new Thread(download);
+								threads.add(downloader);
+								downloader.start();
+							}
+						}				
+						for (Thread thread : threads){
+							thread.join();
 						}
-					}				
-					for (Thread thread : threads){
-						thread.join();
-					}
-					for (Node.Downloader download : downloads){
-						latencyList.put(download.getIp(),download.getTime());
-						//System.out.println(latencyList.toString());
-
-					}
-					System.out.println("FINISHED ROUND");	
-					break;
-				case 2:
+						for (Node.Downloader download : downloads){
+							latencyList.put(download.getIp(),download.getTime());
+							//System.out.println(latencyList.toString());
+	
+						}
+						System.out.println("FINISHED ROUND");	
+						break;
+					case 3:
+						
+						for(String key: chunkList.keySet()){
+							System.out.println(key);
+						}
+									
+						
 					
-					for(String key: chunkList.keySet()){
-						System.out.println(key);
-					}
-							
-					
-					
-					break;
-				default:
-					System.out.println("Invalid Command");
-					
-					break;
+						break;
+					default:
+						System.out.println("Invalid Command");
+						
+						break;
+				}
+	
 			}
-			repeater--;	
+			
+        	
 		}
-		
-        }	
-		
 		catch(Exception e){
 			System.out.println("node exception " + e.toString());
 			e.printStackTrace();
 		}
-		}
+	}
 }
 

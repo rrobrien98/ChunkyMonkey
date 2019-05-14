@@ -39,7 +39,7 @@ else:
     #os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@3.14.64.40 java Node 3.14.64.40 100.26.104.102 3")
          
     counter = 0
-    while counter < (len(nodes)):
+    while counter < (len(nodes) - 20):
         i = os.fork()
         if i == 0:
         #    print(counter)
@@ -47,8 +47,17 @@ else:
             os._exit(0)
         
         counter += 1
-    time.sleep(200)
-    print("downloading")
-    os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@54.252.169.133 java -Djava.rmi.server.hostname=54.252.169.133 Node 54.252.169.133 100.26.104.102 bigfile.txt")    
+    #time.sleep(200)
+    #print("downloading")
+    i = os.fork()
+    if i>0:
+        os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@54.252.169.133 java -Djava.rmi.server.hostname=54.252.169.133 Node 54.252.169.133 100.26.104.102 smallfile.txt 0")    
+        
+    else:
+        j = os.fork()
+        if j> 0:
+            os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@54.252.169.133 java -Djava.rmi.server.hostname=54.252.169.133 Node 54.252.169.133 100.26.104.102 bigfile.txt")
+        else:
+            os.system("ssh -i /home/rrobrien/rrobrien-keypair rrobrien@" + nodes[0] + " java -Djava.rmi.server.hostname=" + nodes[0] + " Node "+nodes[0] +" 100.26.104.102 smallfile.txt")
 
 
