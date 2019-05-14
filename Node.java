@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * This class runs the client program on a machine
  * It allows a user to add them self to the ChunkyMonkey system, and gives them the ability to declair files for download and to
  * download files from other nodes
+ * Implements Thread so node can run as server and client. 
  * To run this program, the command line argument: java -Djava.rmi.server.hostname=[your public IP] Node [your public IP] [master servers public IP]                                                                             54.153.0.234 100.26.104.102
  */
 public class Node extends Thread implements ClientInterface{
@@ -198,7 +199,8 @@ public class Node extends Thread implements ClientInterface{
 		try{
 	        	Registry registry = LocateRegistry.getRegistry(masterIp, 8087);
 	        	MasterInterface stub = (MasterInterface) registry.lookup("Master");
-			String response = stub.addNode(thisIp);
+			String response = stub.addNode(thisIp); 
+			//Node gets added to network 
 			while(true){
 		
 				System.out.println("Enter operation: \n1) Make file available to system for download \n2) Download a file \n3) See files available");	
@@ -214,8 +216,8 @@ public class Node extends Thread implements ClientInterface{
 					
 	                                        long start = System.currentTimeMillis();
 	                                        response = stub.modifyList(infoArr[0],thisIp,Integer.parseInt(infoArr[1]));
+						//File chunk gets added to system
 						System.out.println("TIME: " + (System.currentTimeMillis() - start));
-	
 						break;
 					case 2:
 						
@@ -223,7 +225,10 @@ public class Node extends Thread implements ClientInterface{
 						Scanner filename = new Scanner(System.in);
 						String file = filename.nextLine();
 						ArrayList<String[]> chunks = chunkList.get(file);
+						//List of all chunk index locations for file
+						
 						String[][] toDownload = new String[100][2]; 
+						//Array 
 						
 						synchronized(chunkList){
 							for(String[] chunk: chunks){
@@ -241,6 +246,7 @@ public class Node extends Thread implements ClientInterface{
 						}
 						ArrayList<Node.Downloader> downloads = new ArrayList<Node.Downloader>();
 						ArrayList<Thread> threads = new ArrayList<Thread>();
+						
 	
 						for (int i = 0; i < toDownload.length; i++){
 							if (toDownload[i][0] !=  null) {
@@ -255,9 +261,9 @@ public class Node extends Thread implements ClientInterface{
 						for (Thread thread : threads){
 							thread.join();
 						}
+						
 						for (Node.Downloader download : downloads){
 							latencyList.put(download.getIp(),download.getTime());
-
 						}
 					
 						break;
